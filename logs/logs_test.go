@@ -13,3 +13,7 @@ func TestLogIngest_Success(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 }
+
+func TestFilter_Level_Success(t *testing.T) {
+
+}

@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"glimpse/db"
 	"io"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -37,17 +34,6 @@ func Read(input io.Reader) error {
 
 	defer conn.Close()
 
-	// Cleanup function
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigs
-		fmt.Println("\nShutting down... cleaning up temporary database.")
-		os.Remove("glimpse_temp.db")
-		os.Exit(0)
-	}()
-
 	for scanner.Scan() {
 		line := bytes.TrimSpace(scanner.Bytes())
 
@@ -65,10 +51,17 @@ func Read(input io.Reader) error {
 				jsonLog.Message,
 				line,
 			)
+			rules := []filterRule{
+				{
+					field:    "level",
+					value:    "error",
+					operator: "LIKE",
+				},
+			}
+			PrintFilteredLog(conn, rules)
 		} else {
 			//fmt.Printf("%s\n", line)
 		}
-
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -86,10 +79,7 @@ func PrintJSONLogs(db *sqlx.DB) {
 	fmt.Println(logs)
 }
 
-func PrintFilteredLog(db *sqlx.DB) {
-	var logs []JSONLog
-	if err := db.Select(&logs, "SELECT level, timestamp, message, raw FROM jsonlogs WHERE level=$1", "error"); err != nil {
-		fmt.Printf("error printing logs: %v", err)
-	}
+func PrintFilteredLog(db *sqlx.DB, rules []filterRule) {
+	logs, _ := FilterJSONLog(db, rules)
 	fmt.Println(logs)
 }
