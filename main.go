@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"glimpse/logs"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/rivo/tview"
 )
 
 func main() {
@@ -20,9 +21,17 @@ func main() {
 		os.Exit(0)
 	}()
 
-	err := logs.Read(os.Stdin)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+	// err := logs.Read(os.Stdin)
+	// if err != nil {
+	// 	fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	// 	os.Exit(1)
+	// }
+
+	grid := tview.NewGrid().
+		SetRows(9, 1).
+		SetColumns(3, 7)
+
+	if err := tview.NewApplication().SetRoot(grid, true).SetFocus(grid).Run(); err != nil {
+		panic(err)
 	}
 }

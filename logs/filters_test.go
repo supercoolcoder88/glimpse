@@ -47,7 +47,8 @@ func TestFilterJSONLogs_Success(t *testing.T) {
 		line,
 	)
 
-	logs, err := FilterJSONLog(db, rules)
+	filter := NewFilter(db)
+	logs, err := filter.HandleJSON(rules)
 	if err != nil {
 		t.Fatalf("failed to filter: %s", err)
 	}
@@ -68,7 +69,8 @@ func TestFilterJSONLogs_BadOperator_ShouldError(t *testing.T) {
 
 	db := generateTestDB()
 
-	_, err := FilterJSONLog(db, rules)
+	filter := NewFilter(db)
+	_, err := filter.HandleJSON(rules)
 
 	if err == nil {
 		t.Fatalf("filter should fail with bad operator: %s", rules[0].operator)
@@ -86,8 +88,8 @@ func TestFilterJSONLogs_BadField_ShouldError(t *testing.T) {
 
 	db := generateTestDB()
 
-	_, err := FilterJSONLog(db, rules)
-
+	filter := NewFilter(db)
+	_, err := filter.HandleJSON(rules)
 	if err == nil {
 		t.Fatalf("filter should fail with bad field: %s", rules[0].field)
 	}

@@ -58,7 +58,7 @@ func Read(input io.Reader) error {
 					operator: "LIKE",
 				},
 			}
-			PrintFilteredLog(conn, rules)
+			// PrintFilteredLog(conn, rules)
 		} else {
 			//fmt.Printf("%s\n", line)
 		}
@@ -79,7 +79,7 @@ func PrintJSONLogs(db *sqlx.DB) {
 	fmt.Println(logs)
 }
 
-func PrintFilteredLog(db *sqlx.DB, rules []filterRule) {
-	logs, _ := FilterJSONLog(db, rules)
-	fmt.Println(logs)
-}
+// func PrintFilteredLog(db *sqlx.DB, rules []filterRule) {
+// 	logs, _ := FilterJSONLog(db, rules)
+// 	fmt.Println(logs)
+// }

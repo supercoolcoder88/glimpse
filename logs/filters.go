@@ -13,21 +13,32 @@ type filterRule struct {
 	operator string
 }
 
-var operators = []string{"=", "<", "<=", ">", ">=", "LIKE"}
-var allowedFields = []string{"level", "ts", "message"}
+type filter struct {
+	Db        *sqlx.DB
+	Fields    []string
+	Operators []string
+}
+
+func NewFilter(db *sqlx.DB) *filter {
+	return &filter{
+		Db:        db,
+		Fields:    []string{"level", "ts", "message"},
+		Operators: []string{"=", "<", "<=", ">", ">=", "LIKE"},
+	}
+}
 
 // Filters JSON logs using operators provided by sqlite
-func FilterJSONLog(db *sqlx.DB, rules []filterRule) ([]JSONLog, error) {
+func (f *filter) HandleJSON(rules []filterRule) ([]JSONLog, error) {
 	query := `SELECT * FROM jsonlogs WHERE 1=1 `
 
 	values := make(map[string]interface{}) // this allows sqlx to handle the type for the query automatically
 	for _, rule := range rules {
-		if !slices.Contains(operators, rule.operator) {
+		if !slices.Contains(f.Operators, rule.operator) {
 			return nil, fmt.Errorf("invalid operator: %s", rule.operator)
 		}
 
 		// Check if filters are correct
-		if !slices.Contains(allowedFields, rule.field) {
+		if !slices.Contains(f.Fields, rule.field) {
 			return nil, fmt.Errorf("invalid field to filter: %s", rule.field)
 		}
 
@@ -40,7 +51,7 @@ func FilterJSONLog(db *sqlx.DB, rules []filterRule) ([]JSONLog, error) {
 	}
 
 	// Make query
-	rows, err := db.NamedQuery(query, values)
+	rows, err := f.Db.NamedQuery(query, values)
 
 	if err != nil {
 		fmt.Printf("error querying logs: %v", err)
