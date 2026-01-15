@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"glimpse/logs"
 	"os"
 	"os/signal"
 	"syscall"
@@ -27,11 +28,25 @@ func main() {
 	// 	os.Exit(1)
 	// }
 
+	app := tview.NewApplication()
+
 	grid := tview.NewGrid().
-		SetRows(9, 1).
+		SetRows(0).
 		SetColumns(3, 7)
 
-	if err := tview.NewApplication().SetRoot(grid, true).SetFocus(grid).Run(); err != nil {
+	activeFilter := make(map[string]any)
+
+	fieldFilterSidebar := tview.NewForm()
+
+	for _, field := range logs.CommonFields {
+		fieldFilterSidebar.AddInputField(field, "", 30, nil, func(text string) {
+			activeFilter[field] = text
+		})
+	}
+
+	grid.AddItem(fieldFilterSidebar, 0, 0, 1, 1, 0, 0, true)
+
+	if err := app.SetRoot(grid, true).SetFocus(grid).Run(); err != nil {
 		panic(err)
 	}
 }

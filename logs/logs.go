@@ -51,13 +51,13 @@ func Read(input io.Reader) error {
 				jsonLog.Message,
 				line,
 			)
-			rules := []filterRule{
-				{
-					field:    "level",
-					value:    "error",
-					operator: "LIKE",
-				},
-			}
+			// rules := []filterRule{
+			// 	{
+			// 		field:    "level",
+			// 		value:    "error",
+			// 		operator: "LIKE",
+			// 	},
+			// }
 			// PrintFilteredLog(conn, rules)
 		} else {
 			//fmt.Printf("%s\n", line)

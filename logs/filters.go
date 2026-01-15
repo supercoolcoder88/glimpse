@@ -14,16 +14,17 @@ type filterRule struct {
 }
 
 type filter struct {
-	Db        *sqlx.DB
-	Fields    []string
-	Operators []string
+	Db *sqlx.DB
 }
+
+var (
+	CommonFields      = []string{"level", "ts", "message"}
+	AllowedOperations = []string{"=", "<", "<=", ">", ">=", "LIKE"}
+)
 
 func NewFilter(db *sqlx.DB) *filter {
 	return &filter{
-		Db:        db,
-		Fields:    []string{"level", "ts", "message"},
-		Operators: []string{"=", "<", "<=", ">", ">=", "LIKE"},
+		Db: db,
 	}
 }
 
@@ -33,12 +34,12 @@ func (f *filter) HandleJSON(rules []filterRule) ([]JSONLog, error) {
 
 	values := make(map[string]interface{}) // this allows sqlx to handle the type for the query automatically
 	for _, rule := range rules {
-		if !slices.Contains(f.Operators, rule.operator) {
+		if !slices.Contains(AllowedOperations, rule.operator) {
 			return nil, fmt.Errorf("invalid operator: %s", rule.operator)
 		}
 
-		// Check if filters are correct
-		if !slices.Contains(f.Fields, rule.field) {
+		// Check if field to filter is in filterable fields
+		if !slices.Contains(CommonFields, rule.field) {
 			return nil, fmt.Errorf("invalid field to filter: %s", rule.field)
 		}
 
