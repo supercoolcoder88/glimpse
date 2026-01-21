@@ -23,10 +23,14 @@ type JSONLog struct {
 	Raw       string `json:"-" db:"raw"`
 }
 
+type UnformattedLogs struct {
+	Raw string `json:"-" db:"raw"`
+}
+
 func Read(input io.Reader) error {
 	scanner := bufio.NewScanner(input)
 
-	conn, err := db.Initialise()
+	conn, err := db.Initialise("")
 
 	if err != nil {
 		return fmt.Errorf("db error: %v", err)
@@ -45,22 +49,18 @@ func Read(input io.Reader) error {
 				return fmt.Errorf("failed to unmarshal JSON: %v", err)
 			}
 
-			conn.Exec(`INSERT INTO jsonlogs (level, timestamp, message, raw) VALUES ($1, $2, $3, $4)`,
+			// Send jsonLog to channel
+
+			conn.Exec(`INSERT INTO json_logs (level, timestamp, message, raw) VALUES ($1, $2, $3, $4)`,
 				jsonLog.Level,
 				jsonLog.Timestamp,
 				jsonLog.Message,
 				line,
 			)
-			// rules := []filterRule{
-			// 	{
-			// 		field:    "level",
-			// 		value:    "error",
-			// 		operator: "LIKE",
-			// 	},
-			// }
-			// PrintFilteredLog(conn, rules)
 		} else {
-			//fmt.Printf("%s\n", line)
+			conn.Exec(`INSERT INTO unformatted_logs (raw) VALUES ($1)`,
+				line,
+			)
 		}
 	}
 
@@ -73,13 +73,13 @@ func Read(input io.Reader) error {
 
 func PrintJSONLogs(db *sqlx.DB) {
 	var logs []JSONLog
-	if err := db.Select(&logs, "SELECT level, timestamp, message, raw FROM jsonlogs"); err != nil {
+	if err := db.Select(&logs, "SELECT level, timestamp, message, raw FROM json_logs"); err != nil {
 		fmt.Printf("error printing logs: %v", err)
 	}
 	fmt.Println(logs)
 }
 
-// func PrintFilteredLog(db *sqlx.DB, rules []filterRule) {
+// func PrintFilteredLog(db *sqlx.DB, rules []FilterRule) {
 // 	logs, _ := FilterJSONLog(db, rules)
 // 	fmt.Println(logs)
 // }

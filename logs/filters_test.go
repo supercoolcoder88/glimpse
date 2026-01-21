@@ -1,46 +1,24 @@
 package logs
 
 import (
+	"glimpse/db"
 	"testing"
-
-	"github.com/jmoiron/sqlx"
 )
 
-func generateTestDB() *sqlx.DB {
-	db, err := sqlx.Open("sqlite3", ":memory:")
-	if err != nil {
-		return nil
-	}
-
-	// Create tables
-	var schema = `
-	CREATE TABLE jsonlogs (
-		level TEXT,
-		timestamp NUMBER,
-		message TEXT,
-		raw TEXT
-	);
-	`
-
-	db.MustExec(schema)
-
-	return db
-}
-
 func TestFilterJSONLogs_Success(t *testing.T) {
-	rules := []filterRule{
+	rules := []FilterRule{
 		{
-			field:    "level",
-			value:    "error",
-			operator: "=",
+			Field:    "level",
+			Value:    "error",
+			Operator: "=",
 		},
 	}
 
-	db := generateTestDB()
+	db, _ := db.Initialise("tests")
 
-	log := JSONLog{Level: "error", Timestamp: 1704562111, Message: "test error, varying values"}
-	line := `{"level":"error","ts":1704562270,"msg":"test error, varying values"}`
-	db.Exec(`INSERT INTO jsonlogs (level, timestamp, message, raw) VALUES ($1, $2, $3, $4)`,
+	log := JSONLog{Level: "error", Timestamp: 1704562111, Message: "test error, varying Values"}
+	line := `{"level":"error","ts":1704562270,"msg":"test error, varying Values"}`
+	db.Exec(`INSERT INTO json_logs (level, timestamp, message, raw) VALUES ($1, $2, $3, $4)`,
 		log.Level,
 		log.Timestamp,
 		log.Message,
@@ -59,38 +37,38 @@ func TestFilterJSONLogs_Success(t *testing.T) {
 }
 
 func TestFilterJSONLogs_BadOperator_ShouldError(t *testing.T) {
-	rules := []filterRule{
+	rules := []FilterRule{
 		{
-			field:    "level",
-			value:    "error",
-			operator: "equals",
+			Field:    "level",
+			Value:    "error",
+			Operator: "equals",
 		},
 	}
 
-	db := generateTestDB()
+	db, _ := db.Initialise("tests")
 
 	filter := NewFilter(db)
 	_, err := filter.HandleJSON(rules)
 
 	if err == nil {
-		t.Fatalf("filter should fail with bad operator: %s", rules[0].operator)
+		t.Fatalf("filter should fail with bad Operator: %s", rules[0].Operator)
 	}
 }
 
 func TestFilterJSONLogs_BadField_ShouldError(t *testing.T) {
-	rules := []filterRule{
+	rules := []FilterRule{
 		{
-			field:    "blah",
-			value:    "error",
-			operator: "=",
+			Field:    "blah",
+			Value:    "error",
+			Operator: "=",
 		},
 	}
 
-	db := generateTestDB()
+	db, _ := db.Initialise("tests")
 
 	filter := NewFilter(db)
 	_, err := filter.HandleJSON(rules)
 	if err == nil {
-		t.Fatalf("filter should fail with bad field: %s", rules[0].field)
+		t.Fatalf("filter should fail with bad Field: %s", rules[0].Field)
 	}
 }

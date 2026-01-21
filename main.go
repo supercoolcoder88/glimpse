@@ -5,6 +5,7 @@ import (
 	"glimpse/logs"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/rivo/tview"
@@ -34,18 +35,38 @@ func main() {
 		SetRows(0).
 		SetColumns(3, 7)
 
-	activeFilter := make(map[string]any)
-
+	// Filter area
 	fieldFilterSidebar := tview.NewForm()
 
+	activeFilters := make(map[string]string)
 	for _, field := range logs.CommonFields {
 		fieldFilterSidebar.AddInputField(field, "", 30, nil, func(text string) {
-			activeFilter[field] = text
+			activeFilters[field] = text
 		})
 	}
 
+	searchButton := tview.NewButton("Search")
+
+	searchButton.SetSelectedFunc(func() {
+		rules := []*logs.FilterRule{}
+		// We assume the filter is structured with a pattern like "operator value"
+		for k, v := range activeFilters {
+			s := strings.Split(strings.TrimSpace(v), "")
+			if len(s) != 2 {
+				panic("incorrect filter format should be *field operator value*")
+			}
+			r, err := logs.NewFilterRule(k, s[1], s[0])
+			if err != nil {
+				// TODO: Handle error here
+			}
+			rules = append(rules, r)
+		}
+	})
+
 	grid.AddItem(fieldFilterSidebar, 0, 0, 1, 1, 0, 0, true)
 
+	// Log display area
+	// textArea := tview.NewTextView()
 	if err := app.SetRoot(grid, true).SetFocus(grid).Run(); err != nil {
 		panic(err)
 	}

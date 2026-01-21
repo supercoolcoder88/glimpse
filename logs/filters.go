@@ -7,10 +7,10 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type filterRule struct {
-	field    string
-	value    any
-	operator string
+type FilterRule struct {
+	Field    string
+	Value    any
+	Operator string
 }
 
 type filter struct {
@@ -22,37 +22,45 @@ var (
 	AllowedOperations = []string{"=", "<", "<=", ">", ">=", "LIKE"}
 )
 
+func NewFilterRule(f string, v any, o string) (*FilterRule, error) {
+	if !slices.Contains(AllowedOperations, o) {
+		return nil, fmt.Errorf("invalid Operator: %s", o)
+	}
+
+	if !slices.Contains(CommonFields, f) {
+		return nil, fmt.Errorf("invalid field to filter: %s", f)
+	}
+
+	return &FilterRule{
+		Field:    f,
+		Value:    v,
+		Operator: o,
+	}, nil
+}
+
 func NewFilter(db *sqlx.DB) *filter {
 	return &filter{
 		Db: db,
 	}
 }
 
-// Filters JSON logs using operators provided by sqlite
-func (f *filter) HandleJSON(rules []filterRule) ([]JSONLog, error) {
+// Filters JSON logs using Operators provided by sqlite
+func (f *filter) HandleJSON(rules []FilterRule) ([]JSONLog, error) {
 	query := `SELECT * FROM jsonlogs WHERE 1=1 `
 
-	values := make(map[string]interface{}) // this allows sqlx to handle the type for the query automatically
+	Values := make(map[string]interface{}) // this allows sqlx to handle the type for the query automatically
 	for _, rule := range rules {
-		if !slices.Contains(AllowedOperations, rule.operator) {
-			return nil, fmt.Errorf("invalid operator: %s", rule.operator)
-		}
 
-		// Check if field to filter is in filterable fields
-		if !slices.Contains(CommonFields, rule.field) {
-			return nil, fmt.Errorf("invalid field to filter: %s", rule.field)
-		}
-
-		values[rule.field] = rule.value
-		if rule.operator == "LIKE" {
-			query += fmt.Sprintf("AND %s LIKE :%s ", rule.field, rule.field)
+		Values[rule.Field] = rule.Value
+		if rule.Operator == "LIKE" {
+			query += fmt.Sprintf("AND %s LIKE :%s ", rule.Field, rule.Field)
 		} else {
-			query += fmt.Sprintf("AND %s%s:%s ", rule.field, rule.operator, rule.field)
+			query += fmt.Sprintf("AND %s%s:%s ", rule.Field, rule.Operator, rule.Field)
 		}
 	}
 
 	// Make query
-	rows, err := f.Db.NamedQuery(query, values)
+	rows, err := f.Db.NamedQuery(query, Values)
 
 	if err != nil {
 		fmt.Printf("error querying logs: %v", err)
