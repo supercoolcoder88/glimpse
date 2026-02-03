@@ -45,8 +45,8 @@ func NewFilter(db *sqlx.DB) *filter {
 }
 
 // Filters JSON logs using Operators provided by sqlite
-func (f *filter) HandleJSON(rules []FilterRule) ([]JSONLog, error) {
-	query := `SELECT * FROM jsonlogs WHERE 1=1 `
+func (f *filter) HandleJSON(rules []FilterRule) ([]JSON, error) {
+	query := `SELECT * FROM logs WHERE 1=1 `
 
 	Values := make(map[string]interface{}) // this allows sqlx to handle the type for the query automatically
 	for _, rule := range rules {
@@ -66,8 +66,8 @@ func (f *filter) HandleJSON(rules []FilterRule) ([]JSONLog, error) {
 		fmt.Printf("error querying logs: %v", err)
 	}
 
-	var logs []JSONLog
-	log := JSONLog{}
+	var logs []JSON
+	log := JSON{}
 	for rows.Next() {
 		err := rows.StructScan(&log)
 		if err != nil {

@@ -16,9 +16,9 @@ func TestFilterJSONLogs_Success(t *testing.T) {
 
 	db, _ := db.Initialise("tests")
 
-	log := JSONLog{Level: "error", Timestamp: 1704562111, Message: "test error, varying Values"}
+	log := JSON{Level: "error", Timestamp: 1704562111, Message: "test error, varying Values"}
 	line := `{"level":"error","ts":1704562270,"msg":"test error, varying Values"}`
-	db.Exec(`INSERT INTO json_logs (level, timestamp, message, raw) VALUES ($1, $2, $3, $4)`,
+	db.Exec(`INSERT INTO logs (level, timestamp, message, raw) VALUES ($1, $2, $3, $4)`,
 		log.Level,
 		log.Timestamp,
 		log.Message,

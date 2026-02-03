@@ -24,15 +24,12 @@ func Initialise(env string) (*sqlx.DB, error) {
 
 	// Create tables
 	var schema = `
-	CREATE TABLE json_logs (
+	CREATE TABLE logs (
+		raw TEXT NOT NULL,
 		level TEXT,
 		timestamp NUMBER,
-		message TEXT,
-		raw TEXT
-	);
-	CREATE TABLE unformatted_logs (
-		raw TEXT
-	);
+		message TEXT
+	)
 	`
 
 	db.MustExec(schema)
