@@ -7,10 +7,10 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type FilterRule struct {
-	Field    string
-	Value    any
-	Operator string
+type Rule struct {
+	field    string
+	value    any
+	operator string
 }
 
 type filter struct {
@@ -22,19 +22,19 @@ var (
 	AllowedOperations = []string{"=", "<", "<=", ">", ">=", "LIKE"}
 )
 
-func NewFilterRule(f string, v any, o string) (*FilterRule, error) {
+func NewRule(f string, v any, o string) (*Rule, error) {
 	if !slices.Contains(AllowedOperations, o) {
-		return nil, fmt.Errorf("invalid Operator: %s", o)
+		return nil, fmt.Errorf("invalid operator: %s", o)
 	}
 
 	if !slices.Contains(CommonFields, f) {
 		return nil, fmt.Errorf("invalid field to filter: %s", f)
 	}
 
-	return &FilterRule{
-		Field:    f,
-		Value:    v,
-		Operator: o,
+	return &Rule{
+		field:    f,
+		value:    v,
+		operator: o,
 	}, nil
 }
 
@@ -44,30 +44,29 @@ func NewFilter(db *sqlx.DB) *filter {
 	}
 }
 
-// Filters JSON logs using Operators provided by sqlite
-func (f *filter) HandleJSON(rules []FilterRule) ([]JSON, error) {
+func (f *filter) Apply(rules []Rule) ([]Entry, error) {
 	query := `SELECT * FROM logs WHERE 1=1 `
 
-	Values := make(map[string]interface{}) // this allows sqlx to handle the type for the query automatically
+	values := make(map[string]interface{}) // this allows sqlx to handle the type for the query automatically
 	for _, rule := range rules {
 
-		Values[rule.Field] = rule.Value
-		if rule.Operator == "LIKE" {
-			query += fmt.Sprintf("AND %s LIKE :%s ", rule.Field, rule.Field)
+		values[rule.field] = rule.value
+		if rule.operator == "LIKE" {
+			query += fmt.Sprintf("AND %s LIKE :%s ", rule.field, rule.field)
 		} else {
-			query += fmt.Sprintf("AND %s%s:%s ", rule.Field, rule.Operator, rule.Field)
+			query += fmt.Sprintf("AND %s%s:%s ", rule.field, rule.operator, rule.field)
 		}
 	}
 
 	// Make query
-	rows, err := f.Db.NamedQuery(query, Values)
+	rows, err := f.Db.NamedQuery(query, values)
 
 	if err != nil {
 		fmt.Printf("error querying logs: %v", err)
 	}
 
-	var logs []JSON
-	log := JSON{}
+	var logs []Entry
+	log := Entry{}
 	for rows.Next() {
 		err := rows.StructScan(&log)
 		if err != nil {

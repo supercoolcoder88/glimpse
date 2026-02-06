@@ -8,14 +8,14 @@ import (
 	"github.com/rivo/tview"
 )
 
-func NewSearchButton(filtersSidebar *tview.Form, search func(rules []logs.FilterRule, db *sqlx.DB) []logs.JSON) *tview.Button {
+func NewSearchButton(filtersSidebar *tview.Form, search func(rules []logs.Rule, db *sqlx.DB) []logs.Entry) *tview.Button {
 	searchButton := tview.NewButton("Search")
 
 	inputs := filtersSidebar.GetFormItemCount()
 
 	// form.GetFormItem(0).(*tview.InputField).GetText()
 	searchButton.SetSelectedFunc(func() {
-		rules := []logs.FilterRule{}
+		rules := []logs.Rule{}
 
 		// We assume the filter is structured with a pattern like "operator value"
 		for i := range inputs {
@@ -24,7 +24,7 @@ func NewSearchButton(filtersSidebar *tview.Form, search func(rules []logs.Filter
 			if len(s) != 2 {
 				panic("incorrect filter format should be *field operator value*")
 			}
-			r, err := logs.NewFilterRule(f.GetLabel(), s[1], s[0])
+			r, err := logs.NewRule(f.GetLabel(), s[1], s[0])
 			if err != nil {
 				// TODO: Handle error here
 			}
@@ -37,9 +37,9 @@ func NewSearchButton(filtersSidebar *tview.Form, search func(rules []logs.Filter
 	return searchButton
 }
 
-func searchJSONLogs(rules []logs.FilterRule, db *sqlx.DB) ([]logs.JSON, error) {
+func searchJSONLogs(rules []logs.Rule, db *sqlx.DB) ([]logs.Entry, error) {
 	f := logs.NewFilter(db)
-	res, err := f.HandleJSON(rules)
+	res, err := f.Apply(rules)
 
 	if err != nil {
 		return nil, err

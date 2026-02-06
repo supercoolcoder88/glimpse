@@ -1,3 +1,4 @@
+2026-01-06T17:30:01Z INFO [test] THIS IS THE FIRST LOG
 2026-01-06T17:30:01Z INFO [auth_service] User login successful: user_id=8823
 2026-01-06T17:30:05Z DEBUG [db_pool] Connection acquired: session_id=abc-123
 2026-01-06T17:30:12Z WARN [api_gateway] Rate limit approaching for IP: 192.168.1.45
@@ -7,9 +8,6 @@
 2026-01-06T17:30:22Z DEBUG [cache] Cache hit for key: "user_session_8823"
 2026-01-06T17:30:45Z FATAL [main] Failed to bind to port 8080: address already in use
 2026-01-06T17:31:01Z ERROR [worker_node_1] Uncaught Panic in background routine
-    stacktrace:
-    main.go:45 (processData)
-    runtime.go:120 (goexit)
 2026-01-06T17:31:05Z INFO [search_index] Reindexing triggered by admin
 2026-01-06T17:31:10Z WARN [api_gateway] Slow response detected: 450ms on /v1/search
 {"level":"info","ts":1704562270,"msg":"structured log record","request_id":"req-99"}
@@ -21,3 +19,4 @@
 2026-01-06T17:31:30Z WARN [api_gateway] Deprecated API endpoint accessed: /v1/old-auth
 2026-01-06T17:31:35Z INFO [search_index] Reindexing completed in 30s
 2026-01-06T17:31:40Z INFO [worker_node_2] Health check passed
+2026-01-06T17:40:01Z INFO [test] THIS IS THE LAST

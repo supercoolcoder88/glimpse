@@ -6,17 +6,14 @@ import (
 )
 
 func TestFilterJSONLogs_Success(t *testing.T) {
-	rules := []FilterRule{
-		{
-			Field:    "level",
-			Value:    "error",
-			Operator: "=",
-		},
-	}
+	rules := []Rule{}
 
-	db, _ := db.Initialise("tests")
+	rule, _ := NewRule("level", "error", "=")
+	rules = append(rules, *rule)
 
-	log := JSON{Level: "error", Timestamp: 1704562111, Message: "test error, varying Values"}
+	db := db.InitialiseTest(t)
+
+	log := Entry{Level: "error", Timestamp: 1704562111, Message: "test error, varying Values"}
 	line := `{"level":"error","ts":1704562270,"msg":"test error, varying Values"}`
 	db.Exec(`INSERT INTO logs (level, timestamp, message, raw) VALUES ($1, $2, $3, $4)`,
 		log.Level,
@@ -26,7 +23,7 @@ func TestFilterJSONLogs_Success(t *testing.T) {
 	)
 
 	filter := NewFilter(db)
-	logs, err := filter.HandleJSON(rules)
+	logs, err := filter.Apply(rules)
 	if err != nil {
 		t.Fatalf("failed to filter: %s", err)
 	}
@@ -37,38 +34,17 @@ func TestFilterJSONLogs_Success(t *testing.T) {
 }
 
 func TestFilterJSONLogs_BadOperator_ShouldError(t *testing.T) {
-	rules := []FilterRule{
-		{
-			Field:    "level",
-			Value:    "error",
-			Operator: "equals",
-		},
-	}
-
-	db, _ := db.Initialise("tests")
-
-	filter := NewFilter(db)
-	_, err := filter.HandleJSON(rules)
+	_, err := NewRule("level", "ERROR", "equals")
 
 	if err == nil {
-		t.Fatalf("filter should fail with bad Operator: %s", rules[0].Operator)
+		t.Fatalf("rule should fail with bad operator: equals")
 	}
 }
 
 func TestFilterJSONLogs_BadField_ShouldError(t *testing.T) {
-	rules := []FilterRule{
-		{
-			Field:    "blah",
-			Value:    "error",
-			Operator: "=",
-		},
-	}
+	_, err := NewRule("error", "ERROR", "=")
 
-	db, _ := db.Initialise("tests")
-
-	filter := NewFilter(db)
-	_, err := filter.HandleJSON(rules)
 	if err == nil {
-		t.Fatalf("filter should fail with bad Field: %s", rules[0].Field)
+		t.Fatalf("rule should fail with bad field: error")
 	}
 }

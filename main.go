@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"glimpse/components"
+	"glimpse/db"
 	"glimpse/logs"
 	"os"
 	"os/signal"
@@ -12,6 +13,8 @@ import (
 )
 
 func main() {
+	defer os.Remove("glimpse_temp.db")
+
 	// Cleanup function
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -31,15 +34,10 @@ func main() {
 	// searchButton := components.NewSearchButton(sidebar)
 
 	// Search row
-	// searchRow := tview.NewFlex().
-	// 	AddItem(searchbar, 0, 1, true).
-	// 	AddItem(searchButton, 12, 0, false)
-
 	searchRow := tview.NewFlex().
 		AddItem(searchbar, 0, 1, true)
 
 	// Draw items
-	// Create a placeholder for where the logs will go
 	logDisplay := tview.NewTextView().
 		SetDynamicColors(true).
 		SetRegions(true).
@@ -60,14 +58,18 @@ func main() {
 
 	// Reading the logs
 	readCh := make(chan logs.Entry)
+
+	// Shutdown goroutine
 	go func() {
 		<-sigs
 		app.Stop()
 	}()
 
 	go func() {
-		err := logs.Read(os.Stdin, readCh)
-		if err != nil {
+		sqlite, _ := db.Initialise()
+		defer sqlite.Close()
+
+		if err := logs.Read(os.Stdin, readCh, sqlite); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -75,16 +77,16 @@ func main() {
 
 	go func() {
 		for entry := range readCh {
-			// app.QueueUpdateDraw here
+			app.QueueUpdateDraw(func() {
+				fmt.Fprintf(logDisplay, "%s \n", entry.Raw)
+			})
 		}
 	}()
 
-	// Log display area
-	// textArea := tview.NewTextView()
+	defer close(readCh)
+
 	if err := app.EnableMouse(true).SetRoot(grid, true).SetFocus(grid).Run(); err != nil {
 		panic(err)
 	}
 
-	fmt.Println("\nShutting down... cleaning up temporary database.")
-	defer os.Remove("glimpse_temp.db")
 }
