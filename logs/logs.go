@@ -13,22 +13,23 @@ import (
 
 // Logs will be converted to this struct for processing and display
 type Entry struct {
-	Level          string                 `json:"level" db:"level"`
-	Timestamp      int                    `json:"ts" db:"timestamp"`
-	Message        string                 `json:"msg" db:"message"`
-	Raw            string                 `json:"-" db:"raw"`
+	Level            string                 `json:"level" db:"level"`
+	Timestamp        int                    `json:"ts" db:"timestamp"`
+	Message          string                 `json:"msg" db:"message"`
+	Raw              string                 `json:"-" db:"raw"`
 	AdditionalFields map[string]interface{} // TODO: Implement this in future
-	isJSON         bool
+	isJSON           bool
 }
 
 // Read will process the logs. Logs are categorised as either JSON format or unformatted (will look to add more processing)
 // it will return the log as an Entry class via the "output" channel to allow for processing of the log for UI display purposes. Logs
 // are passed into the "dbCh" channel to allow for filtering of the data when the user requests via a sqlite db.
 func Read(input io.Reader, output chan Entry, db *sqlx.DB) error {
+	defer close(output)
 	scanner := bufio.NewScanner(input)
 
 	// goroutine to handle database operations
-	dbCh := make(chan Entry, 100)
+	dbCh := make(chan Entry)
 	go func() {
 		for entry := range dbCh {
 			if entry.isJSON {
@@ -58,6 +59,8 @@ func Read(input io.Reader, output chan Entry, db *sqlx.DB) error {
 			if err := json.Unmarshal(line, &jsonLog); err != nil {
 				return fmt.Errorf("failed to unmarshal JSON: %v", err)
 			}
+			jsonLog.Raw = raw
+			jsonLog.isJSON = true
 
 			dbCh <- jsonLog
 			output <- jsonLog

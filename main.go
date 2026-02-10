@@ -38,11 +38,7 @@ func main() {
 		AddItem(searchbar, 0, 1, true)
 
 	// Draw items
-	logDisplay := tview.NewTextView().
-		SetDynamicColors(true).
-		SetRegions(true).
-		SetWordWrap(true)
-	logDisplay.SetBorder(true).SetTitle(" Log Output ")
+	logDisplay := components.NewDisplay(app)
 
 	// searchrow on top, logs on bot
 	rightSide := tview.NewFlex().
@@ -65,13 +61,16 @@ func main() {
 		app.Stop()
 	}()
 
+	// Read routine
 	go func() {
 		sqlite, _ := db.Initialise()
 		defer sqlite.Close()
 
 		if err := logs.Read(os.Stdin, readCh, sqlite); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
+			app.QueueUpdateDraw(func() {
+				fmt.Fprintf(logDisplay, "[red]Error: %v\n", err)
+				app.Stop()
+			})
 		}
 	}()
 
@@ -82,8 +81,6 @@ func main() {
 			})
 		}
 	}()
-
-	defer close(readCh)
 
 	if err := app.EnableMouse(true).SetRoot(grid, true).SetFocus(grid).Run(); err != nil {
 		panic(err)
