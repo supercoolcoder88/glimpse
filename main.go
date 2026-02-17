@@ -14,6 +14,26 @@ import (
 	"github.com/rivo/tview"
 )
 
+type UIMessage interface{}
+
+type AppendLog struct {
+	Entry logs.Entry
+}
+
+type ShowSearchResults struct {
+	Results []logs.Entry
+}
+
+type ShowError struct {
+	Err error
+}
+
+type Quit struct{}
+
+type UIState struct {
+	mode string // live | search
+}
+
 func main() {
 	defer os.Remove("glimpse_temp.db")
 
@@ -22,6 +42,7 @@ func main() {
 
 	readCh := make(chan logs.Entry)
 	sigs := make(chan os.Signal, 1)
+	uiCh := make(chan UIMessage)
 
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
@@ -34,22 +55,26 @@ func main() {
 	sidebar := components.NewSidebar(logs.CommonFields)
 	searchbar := components.NewSearchBar()
 
-	searchRow := tview.NewFlex().
-		AddItem(searchbar, 0, 1, true)
 	logDisplay := components.NewDisplay(app)
 
-		// Search button
-
-	search := func(filterSidebar *tview.Form, logDisplay *tview.TextView, ch chan logs.Entry, db *sqlx.DB) {
+	// Search button
+	search := func(filterSidebar *tview.Form, db *sqlx.DB) ([]logs.Entry, error) {
 		inputs := filterSidebar.GetFormItemCount()
 
 		rules := []logs.Rule{}
 
 		for i := range inputs {
 			f := filterSidebar.GetFormItem(i).(*tview.InputField)
-			s := strings.Split(strings.TrimSpace(f.GetText()), "")
+			text := strings.TrimSpace(f.GetText())
+
+			if text == "" {
+				continue
+			}
+
+			s := strings.Fields(text)
+
 			if len(s) != 2 {
-				panic("incorrect filter format should be *field operator value*") // TODO: Handle error
+				panic("incorrect filter format should be 'operator value'") // TODO: Handle error
 			}
 			r, err := logs.NewRule(f.GetLabel(), s[1], s[0])
 			if err != nil {
@@ -60,23 +85,23 @@ func main() {
 
 		filter := logs.NewFilter(db)
 		res, err := filter.Apply(rules)
-
-		if err != nil {
-			// TODO: Handle error
-		}
-
-		logDisplay.SetText("")
-		logDisplay.ScrollToBeginning()
-
-		for _, r := range res {
-			ch <- r
-		}
+		return res, err
 	}
 
 	searchButton := components.NewSearchButton()
-	searchButton.SetSelectedFunc(func () {
-		search(sidebar, logDisplay, readCh, sqlite)
+	searchButton.SetSelectedFunc(func() {
+		res, err := search(sidebar, sqlite)
+		if err != nil {
+			uiCh <- ShowError{Err: err}
+			return
+		}
+
+		uiCh <- ShowSearchResults{Results: res}
 	})
+
+	searchRow := tview.NewFlex().
+		AddItem(searchbar, 0, 1, true).
+		AddItem(searchButton, 0, 1, true)
 
 	// searchrow on top, logs on bot
 	rightSide := tview.NewFlex().
@@ -96,21 +121,61 @@ func main() {
 		app.Stop()
 	}()
 
-	// Read routine
+	// UI state management
 	go func() {
-		if err := logs.Read(os.Stdin, readCh, sqlite); err != nil {
-			app.QueueUpdateDraw(func() {
-				fmt.Fprintf(logDisplay, "[red]Error: %v\n", err)
+		state := UIState{
+			mode: "live",
+		}
+
+		for msg := range uiCh {
+			switch m := msg.(type) {
+
+			case AppendLog:
+				if state.mode == "live" {
+					app.QueueUpdateDraw(func() {
+						fmt.Fprintf(logDisplay, "%s\n", m.Entry.Raw)
+					})
+				}
+
+			case ShowSearchResults:
+				state.mode = "search"
+
+				app.QueueUpdateDraw(func() {
+					logDisplay.SetText("")
+					logDisplay.ScrollToBeginning()
+					if len(m.Results) == 0 {
+						fmt.Fprint(logDisplay, "No results found")
+					} else {
+						for _, r := range m.Results {
+							fmt.Fprintf(logDisplay, "%s\n", r.Raw)
+						}
+					}
+				})	
+
+			case ShowError:
+				app.QueueUpdateDraw(func() {
+					fmt.Fprintf(logDisplay, "[red]Error: %v\n", m.Err)
+				})
+
+			case Quit:
 				app.Stop()
-			})
+				return
+			}
 		}
 	}()
 
+	// Read routine
+	go func() {
+		if err := logs.Read(os.Stdin, readCh, sqlite); err != nil {
+			uiCh <- ShowError{Err: err}
+			uiCh <- Quit{}
+		}
+	}()
+
+	// Update app routine
 	go func() {
 		for entry := range readCh {
-			app.QueueUpdateDraw(func() {
-				fmt.Fprintf(logDisplay, "%s \n", entry.Raw)
-			})
+			uiCh <- AppendLog{Entry: entry}
 		}
 	}()
 
