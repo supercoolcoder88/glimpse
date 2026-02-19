@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -18,7 +21,7 @@ type Entry struct {
 	Message          string                 `json:"msg" db:"message"`
 	Raw              string                 `json:"-" db:"raw"`
 	AdditionalFields map[string]interface{} // TODO: Implement this in future
-	isJSON           bool
+	isUnknownFormat  bool
 }
 
 // Read will process the logs. Logs are categorised as either JSON format or unformatted (will look to add more processing)
@@ -32,15 +35,15 @@ func Read(input io.Reader, output chan Entry, db *sqlx.DB) error {
 	dbCh := make(chan Entry)
 	go func() {
 		for entry := range dbCh {
-			if entry.isJSON {
+			if entry.isUnknownFormat {
+				db.Exec(`INSERT INTO logs (raw) VALUES ($1)`,
+					entry.Raw,
+				)
+			} else {
 				db.Exec(`INSERT INTO logs (level, timestamp, message, raw) VALUES ($1, $2, $3, $4)`,
 					entry.Level,
 					entry.Timestamp,
 					entry.Message,
-					entry.Raw,
-				)
-			} else {
-				db.Exec(`INSERT INTO logs (raw) VALUES ($1)`,
 					entry.Raw,
 				)
 			}
@@ -52,6 +55,11 @@ func Read(input io.Reader, output chan Entry, db *sqlx.DB) error {
 		line := bytes.TrimSpace(scanner.Bytes())
 		raw := string(line)
 
+		// Check for logfmt
+		re := regexp.MustCompile(`(\w+)=("[^"]*"|[^"\s]+)`)
+		matches := re.FindAllStringSubmatch(raw, -1)
+
+		isLogFmt := len(matches) > 0
 		// JSON Log parsing
 		if bytes.HasPrefix(line, []byte("{")) {
 			var jsonLog Entry
@@ -60,12 +68,43 @@ func Read(input io.Reader, output chan Entry, db *sqlx.DB) error {
 				return fmt.Errorf("failed to unmarshal JSON: %v", err)
 			}
 			jsonLog.Raw = raw
-			jsonLog.isJSON = true
 
 			dbCh <- jsonLog
 			output <- jsonLog
+
+		} else if isLogFmt {
+			entry := Entry{
+				Raw:              raw,
+				AdditionalFields: make(map[string]interface{}),
+			}
+
+			for _, match := range matches {
+				key := match[1]
+				value := match[2]
+
+				if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
+					value = value[1 : len(value)-1]
+				}
+
+				// TODO: Make this more dynamic later
+				switch key {
+				case "level":
+					entry.Level = value
+				case "ts":
+					if ts, err := strconv.Atoi(value); err == nil {
+						entry.Timestamp = ts
+					}
+				case "msg":
+					entry.Message = value
+				default:
+					entry.AdditionalFields[key] = value
+				}
+			}
+
+			dbCh <- entry
+			output <- entry
 		} else {
-			e := Entry{Raw: raw}
+			e := Entry{Raw: raw, isUnknownFormat: true}
 			dbCh <- e
 			output <- e
 		}

@@ -19,7 +19,7 @@ type filter struct {
 
 var (
 	CommonFields      = []string{"level", "ts", "message"}
-	AllowedOperations = []string{"=", "<", "<=", ">", ">=", "LIKE"}
+	AllowedOperations = []string{"=", "<", "<=", ">", ">=", "~=", "LIKE"}
 )
 
 func NewRule(f string, v any, o string) (*Rule, error) {
@@ -51,7 +51,7 @@ func (f *filter) Apply(rules []Rule) ([]Entry, error) {
 	for _, rule := range rules {
 
 		values[rule.field] = rule.value
-		if rule.operator == "LIKE" {
+		if rule.operator == "LIKE" || rule.operator == "~=" {
 			query += fmt.Sprintf("AND %s LIKE :%s ", rule.field, rule.field)
 		} else {
 			query += fmt.Sprintf("AND %s%s:%s ", rule.field, rule.operator, rule.field)
