@@ -6,9 +6,11 @@ import (
 )
 
 func NewSearchBar() *tview.InputField {
-	searchbar := tview.NewInputField().
-		SetLabel("Search: ").
-		SetFieldBackgroundColor(tcell.ColorDarkSlateGrey)
+	searchbar := tview.NewInputField()
 
+	searchbar.SetBorder(true).
+		SetTitle(" Search ").
+		SetBackgroundColor(tcell.NewHexColor(0x2a2a2a)).
+		SetBorderColor(tcell.ColorGray)
 	return searchbar
 }

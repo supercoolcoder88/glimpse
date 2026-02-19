@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/rivo/tview"
 )
@@ -36,6 +37,15 @@ type UIState struct {
 
 func main() {
 	defer os.Remove("glimpse_temp.db")
+
+	tview.Styles.PrimitiveBackgroundColor = tcell.NewHexColor(0x1e1e1e)
+	tview.Styles.ContrastBackgroundColor = tcell.NewHexColor(0x2a2a2a)
+	tview.Styles.MoreContrastBackgroundColor = tcell.NewHexColor(0x333333)
+	tview.Styles.BorderColor = tcell.ColorGray
+	tview.Styles.TitleColor = tcell.ColorWhite
+	tview.Styles.GraphicsColor = tcell.ColorWhite
+	tview.Styles.PrimaryTextColor = tcell.ColorWhite
+	tview.Styles.SecondaryTextColor = tcell.ColorLightGray
 
 	sqlite, _ := db.Initialise()
 	defer sqlite.Close()
@@ -100,8 +110,8 @@ func main() {
 	})
 
 	searchRow := tview.NewFlex().
-		AddItem(searchbar, 0, 1, true).
-		AddItem(searchButton, 0, 1, true)
+		AddItem(searchbar, 0, 9, true).
+		AddItem(searchButton, 0, 1, false)
 
 	// searchrow on top, logs on bot
 	rightSide := tview.NewFlex().
@@ -133,7 +143,8 @@ func main() {
 			case AppendLog:
 				if state.mode == "live" {
 					app.QueueUpdateDraw(func() {
-						fmt.Fprintf(logDisplay, "%s\n", m.Entry.Raw)
+						fmt.Fprint(logDisplay, formatLog(m.Entry))
+						logDisplay.ScrollToEnd()
 					})
 				}
 
@@ -143,18 +154,20 @@ func main() {
 				app.QueueUpdateDraw(func() {
 					logDisplay.SetText("")
 					logDisplay.ScrollToBeginning()
+
 					if len(m.Results) == 0 {
-						fmt.Fprint(logDisplay, "No results found")
+						fmt.Fprint(logDisplay, "\n [yellow]No results found[-]")
 					} else {
 						for _, r := range m.Results {
-							fmt.Fprintf(logDisplay, "%s\n", r.Raw)
+							fmt.Fprint(logDisplay, formatLog(r))
 						}
 					}
-				})	
+				})
 
 			case ShowError:
 				app.QueueUpdateDraw(func() {
-					fmt.Fprintf(logDisplay, "[red]Error: %v\n", m.Err)
+					fmt.Fprintf(logDisplay, "\n [red]ERR: %v[-]\n", m.Err)
+					logDisplay.ScrollToEnd()
 				})
 
 			case Quit:
@@ -183,4 +196,11 @@ func main() {
 		panic(err)
 	}
 
+}
+
+func formatLog(e logs.Entry) string {
+	content := tview.Escape(e.Raw)
+	separator := "[#444444]" + strings.Repeat("─", 80) + "[-]"
+
+	return fmt.Sprintf("\n%s\n  %s\n", separator, content)
 }
